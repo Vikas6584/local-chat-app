@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local Chat App</title>
+</head>
+<body>
+  <h1>Local Chat App</h1>
+  <div>
+    <h2>Register</h2>
+    <form id="register-form">
+      <input type="text" id="register-username" placeholder="Username" required>
+      <input type="password" id="register-password" placeholder="Password" required>
+      <button type="submit">Register</button>
+    </form>
+  </div>
+  <div>
+    <h2>Login</h2>
+    <form id="login-form">
+      <input type="text" id="login-username" placeholder="Username" required>
+      <input type="password" id="login-password" placeholder="Password" required>
+      <button type="submit">Login</button>
+    </form>
+  </div>
+  <div>
+    <h2>Create Room</h2>
+    <form id="create-room-form">
+      <input type="text" id="room-name" placeholder="Room Name" required>
+      <button type="submit">Create Room</button>
+    </form>
+  </div>
+  <div>
+    <h2>Join Room</h2>
+    <form id="join-room-form">
+      <input type="text" id="join-room-name" placeholder="Room Name" required>
+      <button type="submit">Join Room</button>
+    </form>
+  </div>
+  <div>
+    <h2>Messages</h2>
+    <ul id="messages"></ul>
+    <form id="message-form">
+      <input type="text" id="message-content" placeholder="Message" required>
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const registerForm = document.getElementById('register-form');
+    const loginForm = document.getElementById('login-form');
+    const createRoomForm = document.getElementById('create-room-form');
+    const joinRoomForm = document.getElementById('join-room-form');
+    const messageForm = document.getElementById('message-form');
+    const messages = document.getElementById('messages');
+
+    let token = '';
+    let currentRoom = '';
+
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('register-username').value;
+      const password = document.getElementById('register-password').value;
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      alert(data.message);
+    });
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      token = data.token;
+      alert('Login successful');
+    });
+
+    createRoomForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('room-name').value;
+      const response = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token
+        },
+        body: JSON.stringify({ name }),
+      });
+      const data = await response.json();
+      alert(data.message);
+    });
+
+    joinRoomForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      currentRoom = document.getElementById('join-room-name').value;
+      window.electron.send('joinRoom', currentRoom);
+      fetchMessages();
+    });
+
+    messageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = document.getElementById('message-content').value;
+      const response = await fetch(`/api/rooms/${currentRoom}/messages`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': token
+        },
+        body: JSON.stringify({ content, roomId: currentRoom }),
+      });
+      const data = await response.json();
+      alert(data.message);
+      fetchMessages();
+    });
+
+    window.electron.receive('message', (data) => {
+      const li = document.createElement('li');
+      li.textContent = data.content;
+      messages.appendChild(li);
+    });
+
+    async function fetchMessages() {
+      const response = await fetch(`/api/rooms/${currentRoom}/messages`, {
+        headers: { 'Authorization': token }
+      });
+      const data = await response.json();
+      messages.innerHTML = '';
+      data.messages.forEach(message => {
+        const li = document.createElement('li');
+        li.textContent = message.content;
+        messages.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>
